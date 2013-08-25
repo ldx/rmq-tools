@@ -1,0 +1,8 @@
+deps/
+ebin/
+rel/*/
+
+rmq_publish/rmq_publish
+rmq_consume/rmq_consume
+
+erl_crash.dump
