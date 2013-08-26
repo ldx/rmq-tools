@@ -80,7 +80,7 @@ init(Args) ->
                 timeout = Timeout}}.
 
 handle_info({timeout}, State) ->
-    rmq_consume:stop(),
+    spawn(fun() -> application:stop(rmq_consume) end),
     {noreply, State};
 
 handle_info(#'basic.consume_ok'{}, State) ->

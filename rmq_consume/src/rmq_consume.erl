@@ -2,7 +2,7 @@
 
 -module(rmq_consume). % needed for rebar
 
--export([main/1, stop/0]).
+-export([main/1]).
 
 -define(PROG, atom_to_list(?MODULE)).
 
@@ -30,9 +30,6 @@ start(Props) ->
             io:format("unexpected message: ~p~n", [Msg]),
             halt(-1)
     end.
-
-stop() ->
-    spawn(fun() -> application:stop(rmq_consume) end).
 
 main(Args) ->
     OptSpecList =
