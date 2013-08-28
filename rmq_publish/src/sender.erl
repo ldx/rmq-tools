@@ -40,14 +40,25 @@ send_files([H|T]) ->
     send_file(H),
     send_files(T).
 
+tick() ->
+    receive
+        tick -> ok
+    end,
+    erlang:send_after(?INTERVAL, self(), tick).
+
+calculate_dps(N, Start) ->
+    T = timer:now_diff(now(), Start) div 1000,
+    case T of
+        0 -> 0.0;
+        X -> N / (X / 1000.0)
+    end.
+
 loop(Files, _Start, Counter, _Dps) when Counter >= length(Files) ->
     ok;
 
 loop(Files, Start, Counter, Dps) ->
-    receive
-        tick -> ok;
-        Msg -> error("unknown message ~s~n", [Msg])
-    end,
+    CurrentDps = calculate_dps(Counter, Start),
+    tick(),
     T = timer:now_diff(now(), Start) div 1000,
     M = round((Dps * T) / 1000) - Counter,
     N = if
@@ -57,13 +68,12 @@ loop(Files, Start, Counter, Dps) ->
         end,
     send_files(lists:sublist(Files, Counter + 1, N)),
     NewCounter = Counter + N,
-    CurrentDps = NewCounter / (T / 1000),
     io:format("published ~p files, DPS ~.1f\r", [NewCounter, CurrentDps]),
     loop(Files, Start, NewCounter, Dps).
 
-loop(Ref, Files, Dps) ->
-    loop(Files, now(), 0, Dps),
-    timer:cancel(Ref).
+loop(Files, Dps) ->
+    erlang:send_after(?INTERVAL, self(), tick),
+    loop(Files, now(), 0, Dps).
 
 get_filelist([], List) ->
     List;
@@ -83,8 +93,7 @@ get_filelist(Dirs) ->
 
 send(Dirs, Files, Dps, Timeout) ->
     DirList = get_filelist(Dirs),
-    {ok, Ref} = timer:send_interval(?INTERVAL, tick),
-    loop(Ref, Files ++ DirList, Dps),
+    loop(Files ++ DirList, Dps),
     wait_for_server(Timeout),
     application:stop(rmq_publish).
 
