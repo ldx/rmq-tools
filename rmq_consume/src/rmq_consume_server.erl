@@ -43,7 +43,8 @@ save_file(Dir, Tag, Suffix, Content) ->
         {error, eexist} ->
             save_file(Dir, Tag, Suffix + 1, Content);
         {error, Reason} ->
-            io:format("~nerror creating file ~p: ~p~n", [Name1, Reason])
+            Error = io_lib:format("error creating ~p: ~p", [Name1, Reason]),
+            error(Error)
     end.
 
 save_file(Dir, Tag, Content) ->
