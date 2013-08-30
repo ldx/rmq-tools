@@ -33,7 +33,7 @@ save_file(Dir, Tag, Suffix, Content) ->
     Name = integer_to_list(Tag),
     Name1 = case Suffix of
                 0 -> Name;
-                N -> Name ++ "_" ++ integer_to_list(N - 1)
+                N -> lists:concat([Name, "_", N - 1])
             end,
     case file:open(filename:join(Dir, Name1), [write, exclusive]) of
         {ok, File} ->
