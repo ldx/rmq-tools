@@ -29,8 +29,9 @@ wait_for_server(Timeout) ->
 send_file(File) ->
     case file:read_file(File) of
         {ok, Content} -> rmq_publish_server:send(Content);
-        {error, Reason} -> io:format("error reading ~s: ~s~n", File, Reason),
-                           error
+        {error, Reason} -> Error = io_lib:format("error reading ~s: ~s~n",
+                                                 [File, Reason]),
+                           error(Error)
     end.
 
 send_files([]) ->
