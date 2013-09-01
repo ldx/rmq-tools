@@ -72,6 +72,7 @@ init(Args) ->
     Timeout = proplists:get_value(timeout, Args) * 1000,
     {ok, Connection} = amqp_connection:start(get_amqp_params(Args)),
     {ok, Channel} = amqp_connection:open_channel(Connection),
+    monitor(process, Channel),
     Sub = #'basic.consume'{queue = get_queue(Args)},
     #'basic.consume_ok'{consumer_tag = Tag} =
         amqp_channel:subscribe(Channel, Sub, self()),
@@ -94,13 +95,21 @@ handle_info({#'basic.deliver'{delivery_tag = MTag}, Content}, State) ->
     N = State#state.n + 1,
     io:format("consumed ~B messages\r", [N]),
     Timer = update_timer(State#state.timer, State#state.timeout),
-    {noreply, State#state{n = N, timer = Timer}}.
+    {noreply, State#state{n = N, timer = Timer}};
 
-handle_call(_Message, _From, State) ->
-    {reply, error, State}.
+handle_info({'DOWN', _Ref, process, Channel, Info}, State)
+        when Channel =:= State#state.channel ->
+    error_logger:error_report(["Channel died", Info]),
+    {stop, Info, State};
 
-handle_cast(_Message, State) ->
-    {noreply, State}.
+handle_info(Info, State) ->
+    {stop, Info, State}.
+
+handle_call(Message, _From, State) ->
+    {stop, Message, State}.
+
+handle_cast(Message, State) ->
+    {stop, Message, State}.
 
 terminate(Reason, State) ->
     io:format("~nterminating: ~p~n", [Reason]),
