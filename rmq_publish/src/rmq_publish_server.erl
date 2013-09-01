@@ -82,7 +82,7 @@ handle_cast({send, Payload}, State) ->
                                routing_key = Key},
     Msg = #amqp_msg{props = #'P_basic'{headers = State#state.headers},
                     payload = Payload},
-    amqp_channel:cast(Channel, Publish, Msg),
+    ok = amqp_channel:cast(Channel, Publish, Msg),
     NewState = State#state{last_sent = MessageId},
     {noreply, NewState};
 
