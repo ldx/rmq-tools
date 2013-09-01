@@ -33,10 +33,10 @@ init(Args) ->
     {ok, Params} = amqp_uri:parse(Uri),
     {ok, Connection} = amqp_connection:start(Params),
     {ok, Channel} = amqp_connection:open_channel(Connection),
-    amqp_channel:register_return_handler(Channel, self()),
     monitor(process, Channel),
+    ok = amqp_channel:register_return_handler(Channel, self()),
+    ok = amqp_channel:register_confirm_handler(Channel, self()),
     #'confirm.select_ok'{} = amqp_channel:call(Channel, #'confirm.select'{}),
-    amqp_channel:register_confirm_handler(Channel, self()),
     {ok, #state{channel = Channel, connection = Connection,
                 exchange = Exchange, key = Key, last_sent = 0, last_acked = 0,
                 headers = Headers}}.
