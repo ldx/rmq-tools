@@ -70,8 +70,8 @@ handle_call({ready}, _From, State) ->
         _ -> {reply, not_ok, State}
     end;
 
-handle_call(_Message, _From, State) ->
-    {reply, error, State}.
+handle_call(Message, _From, State) ->
+    {stop, Message, State}.
 
 handle_cast({send, Payload}, State) ->
     Channel = State#state.channel,
@@ -86,8 +86,8 @@ handle_cast({send, Payload}, State) ->
     NewState = State#state{last_sent = MessageId},
     {noreply, NewState};
 
-handle_cast(_Message, State) ->
-    {noreply, State}.
+handle_cast(Message, State) ->
+    {stop, Message, State}.
 
 terminate(Reason, State) ->
     io:format("terminating: ~p~n", [Reason]),
