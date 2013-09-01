@@ -34,6 +34,7 @@ init(Args) ->
     {ok, Connection} = amqp_connection:start(Params),
     {ok, Channel} = amqp_connection:open_channel(Connection),
     amqp_channel:register_return_handler(Channel, self()),
+    monitor(process, Channel),
     #'confirm.select_ok'{} = amqp_channel:call(Channel, #'confirm.select'{}),
     amqp_channel:register_confirm_handler(Channel, self()),
     {ok, #state{channel = Channel, connection = Connection,
@@ -53,8 +54,12 @@ handle_info({#'basic.return'{reply_text = <<"unroutable">>, exchange = _},
     io:format("error: message is unroutable ~p~n", [Content]),
     {stop, stopped, State};
 
-handle_info(Info, State) ->
-    io:format("got unknown message ~p~n", [Info]),
+handle_info({'DOWN', _Ref, process, Channel, Info}, State)
+        when Channel =:= State#state.channel ->
+    error_logger:error_report(["Channel died", Info]),
+    {stop, Info, State};
+
+handle_info(_Info, State) ->
     {noreply, State}.
 
 handle_call({ready}, _From, State) ->
