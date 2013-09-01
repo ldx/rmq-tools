@@ -18,7 +18,7 @@ parse_headers([], Headers) ->
 
 parse_headers([H|T], Headers) ->
     [Key, Value] = string:tokens(H, "="),
-    Header = [{list_to_binary(Key), binary, list_to_binary(Value)}],
+    Header = [{Key, longstr, Value}],
     parse_headers(T, Headers ++ Header).
 
 parse_headers(Params) ->
