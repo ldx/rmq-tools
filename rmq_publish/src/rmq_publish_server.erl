@@ -59,8 +59,8 @@ handle_info({'DOWN', _Ref, process, Channel, Info}, State)
     error_logger:error_report(["Channel died", Info]),
     {stop, Info, State};
 
-handle_info(_Info, State) ->
-    {noreply, State}.
+handle_info(Info, State) ->
+    {stop, Info, State}.
 
 handle_call({ready}, _From, State) ->
     LastSent = State#state.last_sent,
