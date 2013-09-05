@@ -46,12 +46,12 @@ handle_info(#'basic.ack'{delivery_tag = Tag, multiple = _Multiple}, State) ->
     {noreply, NewState};
 
 handle_info(#'basic.nack'{delivery_tag = Tag, multiple = Multiple}, State) ->
-    io:format("error: got nack for ~p (multiple: ~p)~n", [Tag, Multiple]),
+    error_logger:error_report(["got NACK", Tag, Multiple]),
     {stop, stopped, State};
 
 handle_info({#'basic.return'{reply_text = <<"unroutable">>, exchange = _},
              Content}, State) ->
-    io:format("error: message is unroutable ~p~n", [Content]),
+    error_logger:error_report(["message is unroutable", Content]),
     {stop, stopped, State};
 
 handle_info({'DOWN', _Ref, process, Channel, Info}, State)
