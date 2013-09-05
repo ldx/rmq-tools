@@ -82,11 +82,12 @@ get_filelist([], List) ->
 get_filelist([H|T], List) ->
     Result = file:list_dir(H),
     NewList = case Result of
-                  {ok, Filenames} -> [filename:join(H, F) || F <- Filenames];
-                  {error, Reason} -> io:format("error accessing ~s: ~s~n",
-                                               [H, Reason]),
-                                     []
-              end,
+        {ok, Filenames} ->
+            [filename:join(H, F) || F <- Filenames];
+        {error, Reason} ->
+            error_logger:error_report(["error accessing", H, Reason]),
+            error(io_error)
+    end,
     get_filelist(T, List ++ NewList).
 
 get_filelist(Dirs) ->
