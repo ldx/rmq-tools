@@ -9,7 +9,8 @@
 
 -export([start_link/0, start_link/1]).
 
--record(state, {directory, channel, tag, connection, n, timer, timeout}).
+-record(state, {directory, channel, tag, connection, n, timer, timeout,
+                verbosity}).
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -35,16 +36,17 @@ save_file(Dir, Tag, Suffix, Content) ->
                 0 -> Name;
                 N -> lists:concat([Name, "_", N - 1])
             end,
-    case file:open(filename:join(Dir, Name1), [write, exclusive]) of
+    Filename = filename:join(Dir, Name1),
+    case file:open(Filename, [write, exclusive]) of
         {ok, File} ->
             ok = file:write(File, Content),
             ok = file:close(File),
-            ok;
+            {ok, Filename};
         {error, eexist} ->
             save_file(Dir, Tag, Suffix + 1, Content);
         {error, Reason} ->
             Error = io_lib:format("error creating ~p: ~p", [Name1, Reason]),
-            error(Error)
+            {error, Error}
     end.
 
 save_file(Dir, Tag, Content) ->
@@ -66,10 +68,19 @@ close(Connection, Channel, CTag) ->
     ok = amqp_channel:close(Channel),
     ok = amqp_connection:close(Connection).
 
+log_progress(Verbosity, N, Filename, MsgProps) ->
+    case Verbosity of
+        X when X >= 1, is_integer(X) ->
+            io:format("~p <- ~p~n", [Filename, MsgProps]);
+        _ ->
+            io:format("consumed ~B messages\r", [N])
+    end.
+
 init(Args) ->
     process_flag(trap_exit, true),
     Directory = proplists:get_value(directory, Args),
     Timeout = proplists:get_value(timeout, Args) * 1000,
+    Verbosity = proplists:get_value(verbose, Args, 0),
     {ok, Connection} = amqp_connection:start(get_amqp_params(Args)),
     {ok, Channel} = amqp_connection:open_channel(Connection),
     monitor(process, Channel),
@@ -79,7 +90,7 @@ init(Args) ->
     Timer = update_timer(no_timer, Timeout),
     {ok, #state{directory = Directory, channel = Channel, tag = Tag,
                 connection = Connection, n = 0, timer = Timer,
-                timeout = Timeout}}.
+                timeout = Timeout, verbosity = Verbosity}}.
 
 handle_info({timeout}, State) ->
     spawn(fun() -> application:stop(rmq_consume) end),
@@ -88,12 +99,13 @@ handle_info({timeout}, State) ->
 handle_info(#'basic.consume_ok'{}, State) ->
     {noreply, State};
 
-handle_info({#'basic.deliver'{delivery_tag = MTag}, Content}, State) ->
+handle_info({#'basic.deliver'{} = Info, Content}, State) ->
+    MTag = Info#'basic.deliver'.delivery_tag,
     #'amqp_msg'{props = _, payload = Payload} = Content,
-    save_file(State#state.directory, MTag, Payload),
+    {ok, Filename} = save_file(State#state.directory, MTag, Payload),
     amqp_channel:cast(State#state.channel, #'basic.ack'{delivery_tag = MTag}),
     N = State#state.n + 1,
-    io:format("consumed ~B messages\r", [N]),
+    log_progress(State#state.verbosity, N, Filename, Info),
     Timer = update_timer(State#state.timer, State#state.timeout),
     {noreply, State#state{n = N, timer = Timer}};
 
