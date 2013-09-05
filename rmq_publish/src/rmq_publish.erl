@@ -1,10 +1,45 @@
 %% rmq_publish escript entry
 
--module(rmq_publish).  %% needed for rebar
+-module(rmq_publish).  % needed for rebar
 
 -export([main/1]).
 
 -define(PROG, atom_to_list(?MODULE)).
+
+%% ===================================================================
+%% API
+%% ===================================================================
+
+main(Args) ->
+    OptSpecList =
+    [{uri, $u, "uri", {string, "amqp://guest:guest@localhost:5672/%2f"},
+      "RabbitMQ AMQP URI."},
+     {exchange, $e, "exchange", binary, "Name of exchange to publish into."},
+     {routing_key, $r, "routing_key", binary, "Routing key to publish with."},
+     {dps, $s, "dps", {integer, 10}, "Number of docs per second to send."},
+     {timeout, $t, "timeout", {integer, 60}, "Timeout to wait for outstanding"
+      "acknowledgements when finished, in seconds."},
+     {verbose, $v, "verbose", integer, "Verbosity level."},
+     {directory, $d, "directory", string, "Directory from which to publish "
+      "all files. Can be used multiple times."},
+     {file, $f, "file", string, "File to publish. Can be used multiple "
+      "times."},
+     {header, undefined, "header", string, "Add AMQP header for every "
+      "message. Example: --header myheader=myvalue."},
+     {help, $h, "help", undefined, "Show usage info."}],
+    {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
+    Help = proplists:get_value(help, Props),
+    Headers = parse_headers(proplists:get_all_values(header, Props)),
+    Props1 = Props ++ [{headers, Headers}],
+    if Help =/= undefined; length(Leftover) =/= 0 -> getopt:usage(OptSpecList,
+                                                                  ?PROG),
+                                                     exit(normal);
+       Help =:= undefined, length(Leftover) =:= 0 -> start(Props1)
+    end.
+
+%% ===================================================================
+%% Private
+%% ===================================================================
 
 set_env(_App, []) ->
     ok;
@@ -40,31 +75,4 @@ start(Props) ->
         Msg ->
             io:format("unexpected message: ~p~n", [Msg]),
             halt(-1)
-    end.
-
-main(Args) ->
-    OptSpecList =
-    [{uri, $u, "uri", {string, "amqp://guest:guest@localhost:5672/%2f"},
-      "RabbitMQ AMQP URI."},
-     {exchange, $e, "exchange", binary, "Name of exchange to publish into."},
-     {routing_key, $r, "routing_key", binary, "Routing key to publish with."},
-     {dps, $s, "dps", {integer, 10}, "Number of docs per second to send."},
-     {timeout, $t, "timeout", {integer, 60}, "Timeout to wait for outstanding"
-      "acknowledgements when finished, in seconds."},
-     {verbose, $v, "verbose", integer, "Verbosity level."},
-     {directory, $d, "directory", string, "Directory from which to publish "
-      "all files. Can be used multiple times."},
-     {file, $f, "file", string, "File to publish. Can be used multiple "
-      "times."},
-     {header, undefined, "header", string, "Add AMQP header for every "
-      "message. Example: --header myheader=myvalue."},
-     {help, $h, "help", undefined, "Show usage info."}],
-    {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
-    Help = proplists:get_value(help, Props),
-    Headers = parse_headers(proplists:get_all_values(header, Props)),
-    Props1 = Props ++ [{headers, Headers}],
-    if Help =/= undefined; length(Leftover) =/= 0 -> getopt:usage(OptSpecList,
-                                                                  ?PROG),
-                                                     exit(normal);
-       Help =:= undefined, length(Leftover) =:= 0 -> start(Props1)
     end.

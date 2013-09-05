@@ -12,6 +12,10 @@
 -record(state, {channel, connection, exchange, key, last_sent, last_acked,
                 headers}).
 
+%% ===================================================================
+%% API
+%% ===================================================================
+
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
@@ -23,6 +27,10 @@ send(Message) ->
 
 wait_for_confirms(Timeout) ->
     gen_server:call(?MODULE, {wait_for_confirms, Timeout}).
+
+%% ===================================================================
+%% Callbacks
+%% ===================================================================
 
 init(Args) ->
     process_flag(trap_exit, true),

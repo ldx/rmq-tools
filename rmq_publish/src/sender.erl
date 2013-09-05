@@ -5,10 +5,27 @@
 -define(INTERVAL, 25).
 -define(TIMEOUT_INTERVAL, 500).
 
+%% ===================================================================
+%% API
+%% ===================================================================
+
+send(Args) ->
+    Dps = proplists:get_value(dps, Args),
+    FileList = proplists:get_all_values(file, Args),
+    DirList = proplists:get_all_values(directory, Args),
+    Timeout = proplists:get_value(timeout, Args),
+    send(DirList, FileList, Dps, Timeout).
+
+start_link(Args) ->
+    Pid = spawn_link(?MODULE, send, [Args]),
+    {ok, Pid}.
+
+%% ===================================================================
+%% Private
+%% ===================================================================
+
 wait_for_server(Try, MaxTries) when Try >= MaxTries ->
-    io:format("."),
-    io:format("timeout~n"),
-    timeout;
+    io:format(".timeout~n");
 
 wait_for_server(Try, MaxTries) ->
     io:format("."),
@@ -103,14 +120,3 @@ send(Dirs, Files, Dps, Timeout) ->
     loop(Files ++ DirList, Dps),
     wait_for_server(Timeout),
     application:stop(rmq_publish).
-
-send(Args) ->
-    Dps = proplists:get_value(dps, Args),
-    FileList = proplists:get_all_values(file, Args),
-    DirList = proplists:get_all_values(directory, Args),
-    Timeout = proplists:get_value(timeout, Args),
-    send(DirList, FileList, Dps, Timeout).
-
-start_link(Args) ->
-    Pid = spawn_link(?MODULE, send, [Args]),
-    {ok, Pid}.
