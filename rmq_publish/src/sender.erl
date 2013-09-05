@@ -12,13 +12,18 @@ wait_for_server(Try, MaxTries) when Try >= MaxTries ->
 
 wait_for_server(Try, MaxTries) ->
     io:format("."),
-    Result = rmq_publish_server:ready(),
+    Result = rmq_publish_server:wait_for_confirms(?TIMEOUT_INTERVAL),
     case Result of
-        ok -> io:format("ready~n"),
-              ok;
-        not_ok -> timer:sleep(?TIMEOUT_INTERVAL),
-                  wait_for_server(Try + 1,
-                                  MaxTries)
+        ok ->
+            io:format("ready~n");
+        timeout ->
+            wait_for_server(Try + 1, MaxTries);
+        waiting_for_acks ->
+            timer:sleep(?TIMEOUT_INTERVAL),
+            wait_for_server(Try + 1, MaxTries);
+        nacks_received ->
+            error_logger:error_report("NACKs received"),
+            error(nacks_received)
     end.
 
 wait_for_server(Timeout) ->

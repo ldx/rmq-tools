@@ -7,7 +7,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
--export([start_link/0, start_link/1, send/1, ready/0]).
+-export([start_link/0, start_link/1, send/1, wait_for_confirms/1]).
 
 -record(state, {channel, connection, exchange, key, last_sent, last_acked,
                 headers}).
@@ -21,8 +21,8 @@ start_link(Args) ->
 send(Message) ->
     gen_server:cast(?MODULE, {send, Message}).
 
-ready() ->
-    gen_server:call(?MODULE, {ready}).
+wait_for_confirms(Timeout) ->
+    gen_server:call(?MODULE, {wait_for_confirms, Timeout}).
 
 init(Args) ->
     process_flag(trap_exit, true),
@@ -62,12 +62,23 @@ handle_info({'DOWN', _Ref, process, Channel, Info}, State)
 handle_info(Info, State) ->
     {stop, Info, State}.
 
-handle_call({ready}, _From, State) ->
+handle_call({wait_for_confirms, Timeout}, _From, State) ->
     LastSent = State#state.last_sent,
     LastAcked = State#state.last_acked,
     case LastSent of
-        LastAcked -> {reply, ok, State};
-        _ -> {reply, not_ok, State}
+        LastAcked ->
+            Result = amqp_channel:wait_for_confirms(State#state.channel,
+                                                    Timeout),
+            case Result of
+                timeout ->
+                    {reply, timeout, State};
+                false ->
+                    {reply, nacks_received, State};
+                true ->
+                    {reply, ok, State}
+            end;
+        _ ->
+            {reply, waiting_for_acks, State}
     end;
 
 handle_call(Message, _From, State) ->
