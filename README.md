@@ -16,6 +16,12 @@ You need Erlang and [rebar](https://github.com/basho/rebar).
 
 This should fetch dependencies, compile everything, and create executable escripts.
 
+You can also use `make` to drive the build:
+
+    $ make
+
+in the top level directory should build both tools.
+
 Usage
 -----
 Simple publishing:
