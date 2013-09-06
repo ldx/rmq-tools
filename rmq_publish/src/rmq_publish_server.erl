@@ -44,6 +44,7 @@ init(Args) ->
     monitor(process, Channel),
     ok = amqp_channel:register_return_handler(Channel, self()),
     ok = amqp_channel:register_confirm_handler(Channel, self()),
+    ok = amqp_channel:register_flow_handler(Channel, self()),
     #'confirm.select_ok'{} = amqp_channel:call(Channel, #'confirm.select'{}),
     {ok, #state{channel = Channel, connection = Connection,
                 exchange = Exchange, key = Key, last_sent = 0, last_acked = 0,
@@ -56,6 +57,15 @@ handle_info(#'basic.ack'{delivery_tag = Tag, multiple = _Multiple}, State) ->
 handle_info(#'basic.nack'{delivery_tag = Tag, multiple = Multiple}, State) ->
     error_logger:error_report(["got NACK", Tag, Multiple]),
     {stop, stopped, State};
+
+handle_info({#'channel.flow'{active = Active}}, State) ->
+    case Active of
+        true ->
+            error_logger:info_report(["broker started flow control"]);
+        false ->
+            error_logger:info_report(["broker stopped flow control"])
+    end,
+    {noreply, State};
 
 handle_info({#'basic.return'{reply_text = <<"unroutable">>, exchange = _},
              Content}, State) ->
