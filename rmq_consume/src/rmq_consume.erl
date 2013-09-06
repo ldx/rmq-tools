@@ -21,6 +21,7 @@ main(Args) ->
      {timeout, $t, "timeout", {integer, 0}, "Timeout waiting for messages "
       "from queue, in seconds. When no new message has been received for "
       "this amount of time, " ++ ?PROG ++ " exits. 0 means running forever."},
+     {prefetch, $p, "prefetch", integer, "Prefetch this number of messages."},
      {help, $h, "help", undefined, "Show usage info."}],
     {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
     Help = proplists:get_value(help, Props),

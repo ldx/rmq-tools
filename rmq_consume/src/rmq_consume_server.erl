@@ -31,12 +31,20 @@ init(Args) ->
     Directory = proplists:get_value(directory, Args),
     Timeout = proplists:get_value(timeout, Args) * 1000,
     Verbosity = proplists:get_value(verbose, Args, 0),
+    Prefetch = proplists:get_value(prefetch, Args),
     {ok, Connection} = amqp_connection:start(get_amqp_params(Args)),
     {ok, Channel} = amqp_connection:open_channel(Connection),
     monitor(process, Channel),
     Sub = #'basic.consume'{queue = get_queue(Args)},
     #'basic.consume_ok'{consumer_tag = Tag} =
         amqp_channel:subscribe(Channel, Sub, self()),
+    case Prefetch of
+        undefined ->
+            ok;
+        N when is_integer(N) ->
+            #'basic.qos_ok'{} = amqp_channel:call(
+                    Channel, #'basic.qos'{prefetch_count = Prefetch})
+    end,
     Timer = update_timer(no_timer, Timeout),
     {ok, #state{directory = Directory, channel = Channel, tag = Tag,
                 connection = Connection, n = 0, timer = Timer,
