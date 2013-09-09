@@ -10,7 +10,7 @@
 -export([start_link/0, start_link/1, send/1, wait_for_confirms/1]).
 
 -record(state, {channel, connection, exchange, key, last_sent, last_acked,
-                headers}).
+                headers, immediate, mandatory}).
 
 %% ===================================================================
 %% API
@@ -38,6 +38,8 @@ init(Args) ->
     Exchange = proplists:get_value(exchange, Args),
     Key = proplists:get_value(routing_key, Args),
     Headers = proplists:get_value(headers, Args),
+    Immediate = proplists:get_value(immediate, Args, false),
+    Mandatory = proplists:get_value(mandatory, Args, false),
     {ok, Params} = amqp_uri:parse(Uri),
     {ok, Connection} = amqp_connection:start(Params),
     {ok, Channel} = amqp_connection:open_channel(Connection),
@@ -48,7 +50,8 @@ init(Args) ->
     #'confirm.select_ok'{} = amqp_channel:call(Channel, #'confirm.select'{}),
     {ok, #state{channel = Channel, connection = Connection,
                 exchange = Exchange, key = Key, last_sent = 0, last_acked = 0,
-                headers = Headers}}.
+                headers = Headers, immediate = Immediate,
+                mandatory = Mandatory}}.
 
 handle_info(#'basic.ack'{delivery_tag = Tag, multiple = _Multiple}, State) ->
     NewState = State#state{last_acked = Tag},
@@ -103,15 +106,15 @@ handle_call(Message, _From, State) ->
     {stop, Message, State}.
 
 handle_cast({send, Payload}, State) ->
-    Channel = State#state.channel,
-    Key = State#state.key,
-    X = State#state.exchange,
     MessageId = State#state.last_sent + 1,
-    Publish = #'basic.publish'{ticket = MessageId, exchange = X,
-                               routing_key = Key},
+    Publish = #'basic.publish'{ticket = MessageId,
+                               exchange = State#state.exchange,
+                               routing_key = State#state.key,
+                               immediate = State#state.immediate,
+                               mandatory = State#state.mandatory},
     Msg = #amqp_msg{props = #'P_basic'{headers = State#state.headers},
                     payload = Payload},
-    ok = amqp_channel:cast(Channel, Publish, Msg),
+    ok = amqp_channel:cast(State#state.channel, Publish, Msg),
     NewState = State#state{last_sent = MessageId},
     {noreply, NewState};
 

@@ -26,6 +26,8 @@ main(Args) ->
       "times."},
      {header, undefined, "header", string, "Add AMQP header for every "
       "message. Example: --header myheader=myvalue."},
+     {immediate, undefined, "immediate", boolean, "Set immediate flag."},
+     {mandatory, undefined, "mandatory", boolean, "Set mandatory flag."},
      {help, $h, "help", undefined, "Show usage info."}],
     {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
     Help = proplists:get_value(help, Props),
