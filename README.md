@@ -40,6 +40,12 @@ To use individual files as input, not a directory:
 
 The `-f`/`--file` option can be specified multiple times as seen above, just like the `-d`/`--directory` option.
 
+You can also supply tarballs as input to `rmq_publish`. They will be extracted in memory and the files inside the tarball published. This parameter can be used multiple times as well:
+
+    $ ./rmq_publish -e myexchange -r routingkey -b ~/first_archive.tar.gz -b ~/second_archive.tar.gz
+
+Input parameters (i.e. `-f`, `-d` and `-b`) can be mixed in any combination.
+
 Consuming:
 
     $ ./rmq_consume -u amqp://guest:guest@192.168.1.1:5672/%2f -q myqueue -d ~/output_dir/
