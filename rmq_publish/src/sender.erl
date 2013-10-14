@@ -13,8 +13,9 @@ send(Args) ->
     Dps = proplists:get_value(dps, Args),
     FileList = proplists:get_all_values(file, Args),
     DirList = proplists:get_all_values(directory, Args),
+    TarList = proplists:get_all_values(tarball, Args),
     Timeout = proplists:get_value(timeout, Args),
-    send(DirList, FileList, Dps, Timeout).
+    send(TarList, DirList, FileList, Dps, Timeout).
 
 start_link(Args) ->
     Pid = spawn_link(?MODULE, send, [Args]),
@@ -60,7 +61,10 @@ send_files([]) ->
     ok;
 
 send_files([H|T]) ->
-    send_file(H),
+    case H of
+        {_Name, Buffer} -> rmq_publish_server:send(Buffer);
+        _ -> send_file(H)
+    end,
     send_files(T).
 
 tick() ->
@@ -115,8 +119,19 @@ get_filelist([H|T], List) ->
 get_filelist(Dirs) ->
     get_filelist(Dirs, []).
 
-send(Dirs, Files, Dps, Timeout) ->
+get_tarball_filelist([], List) ->
+    List;
+
+get_tarball_filelist([H|T], List) ->
+    {ok, Files} = erl_tar:extract(H, [memory, compressed]),
+    get_tarball_filelist(T, Files ++ List).
+
+get_tarball_filelist(Tarballs) ->
+    get_tarball_filelist(Tarballs, []).
+
+send(Tarballs, Dirs, Files, Dps, Timeout) ->
     DirList = get_filelist(Dirs),
-    loop(Files ++ DirList, Dps),
+    TarList = get_tarball_filelist(Tarballs),
+    loop(TarList ++ Files ++ DirList, Dps),
     wait_for_server(Timeout),
     application:stop(rmq_publish).

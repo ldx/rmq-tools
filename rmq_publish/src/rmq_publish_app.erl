@@ -10,7 +10,7 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    Props = application:get_all_env(),
+    {ok, Props} = application:get_env(props),
     rmq_publish_sup:start_link(Props).
 
 stop(_State) ->

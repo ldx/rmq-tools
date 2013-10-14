@@ -24,6 +24,9 @@ main(Args) ->
       "all files. Can be used multiple times."},
      {file, $f, "file", string, "File to publish. Can be used multiple "
       "times."},
+     {tarball, $b, "tarball", string, "Tarball of files to publish. The "
+      "tarball will be extracted to memory, and the files in it published. "
+      "Can be used multiple times."},
      {header, undefined, "header", string, "Add AMQP header for every "
       "message. Example: --header myheader=myvalue."},
      {immediate, undefined, "immediate", boolean, "Set immediate flag."},
@@ -43,13 +46,6 @@ main(Args) ->
 %% Private
 %% ===================================================================
 
-set_env(_App, []) ->
-    ok;
-
-set_env(App, [{Key, Val}|Rest]) ->
-    application:set_env(App, Key, Val),
-    set_env(App, Rest).
-
 parse_headers([], Headers) ->
     Headers;
 
@@ -64,7 +60,7 @@ parse_headers(Params) ->
 start(Props) ->
     io:format("starting with parameters ~p~n", [Props]),
     ok = application:load(rmq_publish),
-    ok = set_env(rmq_publish, Props),
+    ok = application:set_env(rmq_publish, props, Props),
     ok = application:start(rmq_publish),
     Pid = erlang:whereis(rmq_publish_sup),
     Ref = erlang:monitor(process, Pid),
