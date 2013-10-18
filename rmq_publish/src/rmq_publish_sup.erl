@@ -10,7 +10,7 @@
 
 %% Helper macro for declaring children of supervisor
 -define(CHILD(I, Type, Args), {I, {I, start_link, [Args]}, permanent,
-                               infinity, Type, [I]}).
+                               60000, Type, [I]}).
 
 %% ===================================================================
 %% API functions
