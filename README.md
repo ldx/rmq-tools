@@ -54,4 +54,8 @@ You can also specify a timeout. If no messages are received after it, `rmq_consu
 
     $ ./rmq_consume -u amqp://guest:guest@192.168.1.1:5672/%2f -q myqueue -d ~/output_dir/ -t 60
 
+It is also possible to consume messages but not save them to disk with the --nosave option. Ex:
+
+    $ ./rmq_consume -u amqp://guest:guest@192.168.1.1:5672/%2f -q myqueue -n true
+
 For more information see `-h`/`--help`.
