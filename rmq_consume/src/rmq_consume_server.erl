@@ -10,7 +10,7 @@
 -export([start_link/0, start_link/1]).
 
 -record(state, {directory, channel, tag, connection, n, timer, timeout,
-                verbosity}).
+                verbosity, nosave}).
 
 %% ===================================================================
 %% API
@@ -32,6 +32,7 @@ init(Args) ->
     Timeout = proplists:get_value(timeout, Args) * 1000,
     Verbosity = proplists:get_value(verbose, Args, 0),
     Prefetch = proplists:get_value(prefetch, Args),
+    Nosave = proplists:get_value(nosave, Args),
     {ok, Connection} = amqp_connection:start(get_amqp_params(Args)),
     {ok, Channel} = amqp_connection:open_channel(Connection),
     monitor(process, Channel),
@@ -48,7 +49,8 @@ init(Args) ->
     Timer = update_timer(no_timer, Timeout),
     {ok, #state{directory = Directory, channel = Channel, tag = Tag,
                 connection = Connection, n = 0, timer = Timer,
-                timeout = Timeout, verbosity = Verbosity}}.
+                timeout = Timeout, verbosity = Verbosity,
+                nosave = Nosave}}.
 
 handle_info({timeout}, State) ->
     spawn(fun() -> application:stop(rmq_consume) end),
@@ -59,8 +61,7 @@ handle_info(#'basic.consume_ok'{}, State) ->
 
 handle_info({#'basic.deliver'{} = Info, Content}, State) ->
     MTag = Info#'basic.deliver'.delivery_tag,
-    #'amqp_msg'{props = _, payload = Payload} = Content,
-    {ok, Filename} = save_file(State#state.directory, MTag, Payload),
+    {ok, Filename} = handle_nosave_opt(Content, State, MTag),
     amqp_channel:cast(State#state.channel, #'basic.ack'{delivery_tag = MTag}),
     N = State#state.n + 1,
     log_progress(State#state.verbosity, N, Filename, Info),
@@ -74,6 +75,15 @@ handle_info({'DOWN', _Ref, process, Channel, Info}, State)
 
 handle_info(Info, State) ->
     {stop, Info, State}.
+
+handle_nosave_opt(Content, State, MTag) ->
+    case State#state.nosave of
+        true ->
+            {ok, 'n/a'};
+        false ->
+            #'amqp_msg'{props = _, payload = Payload} = Content,
+            save_file(State#state.directory, MTag, Payload)
+    end.
 
 handle_call(Message, _From, State) ->
     {stop, Message, State}.
