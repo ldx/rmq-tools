@@ -113,33 +113,33 @@ allowed_to_send([{Queue, MaxSize}|Rest]) ->
         _ -> allowed_to_send(Rest)
     end.
 
-loop(Files, Dps, Counter, _MaxDps, _Queues) when Counter >= length(Files) ->
-    _NewDps = update_dps(Dps, Counter),
+loop(Files, Dps, Counter, _Acc, _Max, _Q) when Counter >= length(Files) ->
     show_info(Dps, Counter);
 
-loop(Files, Dps, Counter, MaxDps, Queues) ->
+loop(Files, Dps, Counter, Acc, MaxDps, Queues) ->
     NewDps = update_dps(Dps, Counter),
     show_info(NewDps, Counter),
     tick(),
     case allowed_to_send(Queues) of
         false ->
-            loop(Files, NewDps, Counter, MaxDps, Queues);
+            loop(Files, NewDps, Counter, Acc, MaxDps, Queues);
         true ->
             LastSample = lists:nth(1, NewDps),
             Diff = timer:now_diff(now(), LastSample#dps.timestamp),
-            M = round((MaxDps * Diff) / 1000000),
+            F = Acc + (MaxDps * Diff) / 1000000.0,
+            M = round(F),
             N = if
                     Counter + M > length(Files) -> length(Files) - Counter;
                     Counter + M =< length(Files) -> M
                 end,
             send_files(lists:sublist(Files, Counter + 1, N)),
-            loop(Files, NewDps, Counter + N, MaxDps, Queues)
+            loop(Files, NewDps, Counter + N, F - M, MaxDps, Queues)
     end.
 
 loop(Files, MaxDps, Queues) ->
     Dps = #dps{timestamp = now(), counter = 0},
     erlang:send_after(?INTERVAL, self(), tick),
-    loop(Files, [Dps], 0, MaxDps, Queues).
+    loop(Files, [Dps], 0, 0.0, MaxDps, Queues).
 
 get_filelist([], List) ->
     List;
