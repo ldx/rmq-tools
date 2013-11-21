@@ -27,6 +27,9 @@ main(Args) ->
      {tarball, $b, "tarball", string, "Tarball of files to publish. The "
       "tarball will be extracted to memory, and the files in it published. "
       "Can be used multiple times."},
+     {check_queue, $c, "check_queue", string, "Check if the size of a queue "
+      "exceeds a certain limit. Example: --check_queue queuename=maxsize. "
+      "Can be used multiple times."},
      {header, undefined, "header", string, "Add AMQP header for every "
       "message. Example: --header myheader=myvalue."},
      {immediate, undefined, "immediate", boolean, "Set immediate flag."},
@@ -35,7 +38,8 @@ main(Args) ->
     {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
     Help = proplists:get_value(help, Props),
     Headers = parse_headers(proplists:get_all_values(header, Props)),
-    Props1 = Props ++ [{headers, Headers}],
+    Queues = parse_queues(proplists:get_all_values(check_queue, Props)),
+    Props1 = Props ++ [{headers, Headers}] ++ [{queues, Queues}],
     if Help =/= undefined; length(Leftover) =/= 0 -> getopt:usage(OptSpecList,
                                                                   ?PROG),
                                                      exit(normal);
@@ -56,6 +60,16 @@ parse_headers([H|T], Headers) ->
 
 parse_headers(Params) ->
     parse_headers(Params, []).
+
+parse_queues([], Acc) ->
+    Acc;
+
+parse_queues([H|T], Acc) ->
+    [Queue, MaxSize] = string:tokens(H, "="),
+    parse_queues(T, [{Queue, list_to_integer(MaxSize)}|Acc]).
+
+parse_queues(Params) ->
+    parse_queues(Params, []).
 
 start(Props) ->
     io:format("starting with parameters ~p~n", [Props]),

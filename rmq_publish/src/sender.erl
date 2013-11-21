@@ -4,6 +4,9 @@
 
 -define(INTERVAL, 25).
 -define(TIMEOUT_INTERVAL, 500).
+-define(MAX_DPS_SAMPLES, 10).
+
+-record(dps, {timestamp, counter}).
 
 %% ===================================================================
 %% API
@@ -15,7 +18,8 @@ send(Args) ->
     DirList = proplists:get_all_values(directory, Args),
     TarList = proplists:get_all_values(tarball, Args),
     Timeout = proplists:get_value(timeout, Args),
-    send(TarList, DirList, FileList, Dps, Timeout).
+    Queues = proplists:get_value(queues, Args, []),
+    send(TarList, DirList, FileList, Dps, Timeout, Queues).
 
 start_link(Args) ->
     Pid = spawn_link(?MODULE, send, [Args]),
@@ -73,34 +77,69 @@ tick() ->
     end,
     erlang:send_after(?INTERVAL, self(), tick).
 
-calculate_dps(N, Start) ->
-    T = timer:now_diff(now(), Start) div 1000,
-    case T of
+calculate_dps([]) ->
+    0.0;
+
+calculate_dps(Dps) ->
+    Last = lists:nth(1, Dps),
+    First = lists:last(Dps),
+    CounterDiff = Last#dps.counter - First#dps.counter,
+    TimeDiff = timer:now_diff(Last#dps.timestamp, First#dps.timestamp),
+    case TimeDiff of
         0 -> 0.0;
-        X -> N / (X / 1000.0)
+        _ -> CounterDiff / (TimeDiff / 1000000.0)
     end.
 
-loop(Files, _Start, Counter, _Dps) when Counter >= length(Files) ->
-    ok;
+show_info(Dps, Counter) ->
+    CurrentDps = calculate_dps(Dps),
+    io:format("published ~p files, DPS ~.1f       \r", [Counter, CurrentDps]).
 
-loop(Files, Start, Counter, Dps) ->
-    CurrentDps = calculate_dps(Counter, Start),
+update_dps(Dps, Counter) ->
+    Len = length(Dps),
+    Sample = #dps{timestamp = now(), counter = Counter},
+    case length(Dps) of
+        N when N >= ?MAX_DPS_SAMPLES ->
+            [Sample|lists:sublist(Dps, 1, Len - 1)];
+        _ ->
+            [Sample|Dps]
+    end.
+
+allowed_to_send([]) ->
+    true;
+
+allowed_to_send([{Queue, MaxSize}|Rest]) ->
+    case rmq_publish_server:get_queue_size(Queue) of
+        N when N >= MaxSize -> false;
+        _ -> allowed_to_send(Rest)
+    end.
+
+loop(Files, Dps, Counter, _MaxDps, _Queues) when Counter >= length(Files) ->
+    _NewDps = update_dps(Dps, Counter),
+    show_info(Dps, Counter);
+
+loop(Files, Dps, Counter, MaxDps, Queues) ->
+    NewDps = update_dps(Dps, Counter),
+    show_info(NewDps, Counter),
     tick(),
-    T = timer:now_diff(now(), Start) div 1000,
-    M = round((Dps * T) / 1000) - Counter,
-    N = if
-            Counter + M > length(Files) -> length(Files) - Counter;
-            Counter + M =< length(Files), M >= 0 -> M;
-            Counter + M =< length(Files), M < 0 -> 0
-        end,
-    send_files(lists:sublist(Files, Counter + 1, N)),
-    NewCounter = Counter + N,
-    io:format("published ~p files, DPS ~.1f\r", [NewCounter, CurrentDps]),
-    loop(Files, Start, NewCounter, Dps).
+    case allowed_to_send(Queues) of
+        false ->
+            loop(Files, NewDps, Counter, MaxDps, Queues);
+        true ->
+            LastSample = lists:nth(1, NewDps),
+            Diff = timer:now_diff(now(), LastSample#dps.timestamp),
+            M = round((MaxDps * Diff) / 1000000),
+            N = if
+                    Counter + M > length(Files) -> length(Files) - Counter;
+                    Counter + M =< length(Files) -> M
+                end,
+            send_files(lists:sublist(Files, Counter + 1, N)),
+            loop(Files, NewDps, Counter + N, MaxDps, Queues)
+    end.
 
-loop(Files, Dps) ->
+loop(Files, MaxDps, Queues) ->
+    Dps = #dps{timestamp = now(), counter = 0},
     erlang:send_after(?INTERVAL, self(), tick),
-    loop(Files, now(), 0, Dps).
+    loop(Files, [Dps], 0, MaxDps, Queues).
 
 get_filelist([], List) ->
     List;
@@ -129,9 +168,9 @@ get_tarball_filelist([H|T], List) ->
 get_tarball_filelist(Tarballs) ->
     get_tarball_filelist(Tarballs, []).
 
-send(Tarballs, Dirs, Files, Dps, Timeout) ->
+send(Tarballs, Dirs, Files, MaxDps, Timeout, Queues) ->
     DirList = get_filelist(Dirs),
     TarList = get_tarball_filelist(Tarballs),
-    loop(TarList ++ Files ++ DirList, Dps),
+    loop(TarList ++ Files ++ DirList, MaxDps, Queues),
     wait_for_server(Timeout),
     application:stop(rmq_publish).

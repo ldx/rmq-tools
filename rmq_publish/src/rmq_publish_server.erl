@@ -7,7 +7,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
          code_change/3]).
 
--export([start_link/0, start_link/1, send/1, wait_for_confirms/1]).
+-export([start_link/0, start_link/1, send/1, wait_for_confirms/1,
+         get_queue_size/1]).
 
 -record(state, {channel, connection, exchange, key, last_sent, last_acked,
                 headers, immediate, mandatory}).
@@ -27,6 +28,12 @@ send(Message) ->
 
 wait_for_confirms(Timeout) ->
     gen_server:call(?MODULE, {wait_for_confirms, Timeout}).
+
+get_queue_size(Queue) when is_list(Queue) ->
+    get_queue_size(list_to_binary(Queue));
+
+get_queue_size(Queue) when is_binary(Queue) ->
+    gen_server:call(?MODULE, {queue_size, Queue}).
 
 %% ===================================================================
 %% Callbacks
@@ -101,6 +108,12 @@ handle_call({wait_for_confirms, Timeout}, _From, State) ->
         _ ->
             {reply, waiting_for_acks, State}
     end;
+
+handle_call({queue_size, Q}, _From, State) ->
+    #'queue.declare_ok'{queue = Q, message_count = Cnt} =
+    amqp_channel:call(State#state.channel,
+                      #'queue.declare'{queue = Q, passive = true}),
+    {reply, Cnt, State};
 
 handle_call(Message, _From, State) ->
     {stop, Message, State}.
