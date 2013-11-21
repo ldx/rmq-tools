@@ -42,7 +42,7 @@ main(Args) ->
     Props1 = Props ++ [{headers, Headers}] ++ [{queues, Queues}],
     if Help =/= undefined; length(Leftover) =/= 0 -> getopt:usage(OptSpecList,
                                                                   ?PROG),
-                                                     exit(normal);
+                                                     halt(0);
        Help =:= undefined, length(Leftover) =:= 0 -> start(Props1)
     end.
 
