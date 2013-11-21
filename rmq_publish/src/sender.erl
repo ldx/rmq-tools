@@ -4,7 +4,7 @@
 
 -define(INTERVAL, 25).
 -define(TIMEOUT_INTERVAL, 500).
--define(MAX_DPS_SAMPLES, 10).
+-define(MAX_DPS_SAMPLES, 250).
 
 -record(dps, {timestamp, counter}).
 
