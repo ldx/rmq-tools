@@ -23,7 +23,8 @@ main(Args) ->
       "this amount of time, " ++ ?PROG ++ " exits. 0 means running forever."},
      {prefetch, $p, "prefetch", integer, "Prefetch this number of messages."},
      {help, $h, "help", undefined, "Show usage info."},
-     {nosave, $n, "nosave", {boolean, false}, "Do not save consumed messages to disk, just ack them."}],
+     {nosave, $n, "nosave", {boolean, false}, "Do not save consumed messages "
+      "to disk, just ack them."}],
     {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
     Help = proplists:get_value(help, Props),
     if Help =/= undefined; length(Leftover) =/= 0 -> getopt:usage(OptSpecList,
