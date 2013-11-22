@@ -19,7 +19,6 @@ main(Args) ->
      {dps, $s, "dps", {integer, 10}, "Number of docs per second to send."},
      {timeout, $t, "timeout", {integer, 60}, "Timeout to wait for outstanding"
       "acknowledgements when finished, in seconds."},
-     {verbose, $v, "verbose", integer, "Verbosity level."},
      {directory, $d, "directory", string, "Directory from which to publish "
       "all files. Can be used multiple times."},
      {file, $f, "file", string, "File to publish. Can be used multiple "
