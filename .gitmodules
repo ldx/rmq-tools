@@ -1,0 +1,9 @@
+[submodule "rmq_consume"]
+	path = rmq_consume
+	url = git@github.com:ldx/rmq_consume.git
+[submodule "rmq_publish"]
+	path = rmq_publish
+	url = git@github.com:ldx/rmq_publish.git
+[submodule "rmq_shovel"]
+	path = rmq_shovel
+	url = git@github.com:ldx/rmq_shovel.git
