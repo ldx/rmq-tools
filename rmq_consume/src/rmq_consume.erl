@@ -22,10 +22,17 @@ main(Args) ->
       "this amount of time, " ++ ?PROG ++ " exits. 0 means running forever."},
      {prefetch, $p, "prefetch", integer, "Prefetch this number of messages."},
      {help, $h, "help", undefined, "Show usage info."},
+     {version, $v, "version", undefined, "Show version info."},
      {nosave, $n, "nosave", {boolean, false}, "Do not save consumed messages "
       "to disk, just ack them."}],
     {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
     Help = proplists:get_value(help, Props),
+    Version = proplists:get_value(version, Props),
+    case Version of
+        undefined -> ok;
+        _ -> show_version(),
+             halt(0)
+    end,
     if Help =/= undefined; length(Leftover) =/= 0 -> getopt:usage(OptSpecList,
                                                                   ?PROG),
                                                      halt(0);
@@ -35,6 +42,11 @@ main(Args) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+show_version() ->
+    ok = application:load(rmq_consume),
+    {ok, Vsn} = application:get_key(rmq_consume, vsn),
+    io:format("rmq_consume v~ts~n", [Vsn]).
 
 set_env(_App, []) ->
     ok;
