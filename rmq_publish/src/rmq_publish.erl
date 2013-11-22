@@ -33,12 +33,19 @@ main(Args) ->
       "message. Example: --header myheader=myvalue."},
      {immediate, undefined, "immediate", boolean, "Set immediate flag."},
      {mandatory, undefined, "mandatory", boolean, "Set mandatory flag."},
+     {version, $v, "version", undefined, "Show version info."},
      {help, $h, "help", undefined, "Show usage info."}],
     {ok, {Props, Leftover}} = getopt:parse(OptSpecList, Args),
     Help = proplists:get_value(help, Props),
     Headers = parse_headers(proplists:get_all_values(header, Props)),
     Queues = parse_queues(proplists:get_all_values(check_queue, Props)),
     Props1 = Props ++ [{headers, Headers}] ++ [{queues, Queues}],
+    Version = proplists:get_value(version, Props),
+    case Version of
+        undefined -> ok;
+        _ -> show_version(),
+             halt(0)
+    end,
     if Help =/= undefined; length(Leftover) =/= 0 -> getopt:usage(OptSpecList,
                                                                   ?PROG),
                                                      halt(0);
@@ -48,6 +55,11 @@ main(Args) ->
 %% ===================================================================
 %% Private
 %% ===================================================================
+
+show_version() ->
+    ok = application:load(rmq_publish),
+    {ok, Vsn} = application:get_key(rmq_publish, vsn),
+    io:format("rmq_publish v~ts~n", [Vsn]).
 
 parse_headers([], Headers) ->
     Headers;
