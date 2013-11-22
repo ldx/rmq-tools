@@ -1,7 +1,7 @@
 {application, rmq_consume,
  [
   {description, ""},
-  {vsn, "0.0.1"},
+  {vsn, "0.1.0-dev"},
   {registered, []},
   {applications, [
                   kernel,
