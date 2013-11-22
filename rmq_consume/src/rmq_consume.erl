@@ -15,7 +15,6 @@ main(Args) ->
     [{uri, $u, "uri", {string, "amqp://guest:guest@localhost:5672/%2f"},
       "RabbitMQ AMQP URI."},
      {queue, $q, "queue", string, "Queue to consume from. Mandatory."},
-     {verbose, $v, "verbose", integer, "Verbosity level."},
      {directory, $d, "directory", {string, "."}, "Directory to which save "
       "files to."},
      {timeout, $t, "timeout", {integer, 0}, "Timeout waiting for messages "
